@@ -12,13 +12,12 @@ const Validator = require('./utils/Validator');
 
 class Lotteries {
   #storage;
-  #bonusLotto;
   #rankGroup;
   #winningLotto;
+  #bonusLotto;
 
   constructor() {
     this.#storage = [];
-    this.totalPrize;
     this.#rankGroup = {
       rankFifth: 0,
       rankFourth: 0,
@@ -28,16 +27,11 @@ class Lotteries {
     };
   }
 
-  getBonusLotto() {
-    return this.#bonusLotto;
-  }
-
   setBonusLotto(digit) {
     if (this.#winningLotto.getLotto().includes(digit)) {
-      throw new Error(MESSAGE.ERROR.DUPLICATE_BONUS);
+      throw new Error(MESSAGE.ERROR.duplicateBonus);
     }
-
-    this.#bonusLotto = Validator.validateBonusRange(digit);
+    if (Validator.validateBonusRange(digit)) this.#bonusLotto = digit;
   }
 
   getWinningLotto() {
@@ -61,32 +55,45 @@ class Lotteries {
   }
 
   getTotalPrize() {
-    return this.totalPrize;
+    return this.calcTotalPrize();
+  }
+
+  getLottoArray() {
+    return this.#storage.reduce(
+      (combineConsole, lotto) => (combineConsole += `[${Lotteries.#sortLotto(lotto)}]\n`),
+      '',
+    );
+  }
+
+  static #sortLotto(lotto) {
+    return Lotteries.#arrayToString(
+      lotto.getLotto().sort((front, back) => front - back),
+    );
+  }
+
+  static #arrayToString(arr) {
+    return [...arr].join(', ');
   }
 
   purchaseAuto() {
-    const { MIN_DIGIT, MAX_DIGIT, DIGIT_LENGTH } = LOTTO_INFO;
+    const { minimumDigit, maximumDigit, digitLength } = LOTTO_INFO;
     this.#storage.push(
       new Lotto(
-        Random.pickUniqueNumbersInRange(MIN_DIGIT, MAX_DIGIT, DIGIT_LENGTH),
+        Random.pickUniqueNumbersInRange(minimumDigit, maximumDigit, digitLength),
       ),
     );
   }
 
-  makeRankGroup() {
-    this.#storage.forEach((lotto) => {
-      const correct = lotto.countMatchDigit(this.#winningLotto.getLotto());
-      if (CORRECT_PRIZE_NAME[correct] === undefined) return;
-      if (correct === PRIZE_CORRECT_COUNT.rankSecond && lotto.hasDigit(this.#bonusLotto)) {
-        return (this.#rankGroup.rankSecond += 1);
-      }
-
-      return (this.#rankGroup[CORRECT_PRIZE_NAME[correct]] += 1);
-    });
+  setRankGroup(correctCount, lotto) {
+    if (CORRECT_PRIZE_NAME[correctCount] === undefined) return;
+    if (correctCount === PRIZE_CORRECT_COUNT.rankSecond && lotto.hasDigit(this.#bonusLotto)) {
+      return this.#rankGroup.rankSecond += 1;
+    }
+    return this.#rankGroup[CORRECT_PRIZE_NAME[correctCount]] += 1;
   }
 
   calcTotalPrize() {
-    this.totalPrize = Object.entries(this.#rankGroup).reduce(
+    return Object.entries(this.#rankGroup).reduce(
       (sumPrize, [rank, quantity]) => {
         const rankPrize = PRIZE_MONEY[rank] * quantity;
         return sumPrize + rankPrize;
